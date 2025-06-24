@@ -33,7 +33,7 @@ jobs:
           echo "📥 Starting fetch phase..."
           
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            https://medipim-fetcher.fly.dev/fetch \
+            https://medipim-fetcher.fly.dev/run \
             -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}")
           
           http_code=$(echo "$response" | tail -n1)
@@ -58,7 +58,7 @@ jobs:
             echo "Processing chunk: offset=$offset, limit=$chunk_size"
             
             response=$(curl -s -w "\n%{http_code}" -X POST \
-              https://medipim-maintainer.fly.dev/process \
+              https://medipim-maintainer.fly.dev/run \
               -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" \
               -H "Content-Type: application/json" \
               -d "{\"offset\": $offset, \"limit\": $chunk_size}")
