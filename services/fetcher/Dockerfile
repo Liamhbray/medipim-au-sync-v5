@@ -13,9 +13,10 @@ RUN npm ci --only=production
 COPY index.js ./
 COPY test.js ./
 
-# Create non-root user
+# Create non-root user and set permissions
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
 
 # Switch to non-root user
 USER nodejs
