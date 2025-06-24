@@ -1,0 +1,45 @@
+# Orchestrator Service Configuration
+app = "medipim-orchestrator"
+primary_region = "syd"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  ORCHESTRATOR_PORT = "3003"
+  # Internal service URLs using Fly.io's private networking
+  FETCHER_URL = "http://medipim-fetcher.internal:3001/fetch"
+  MAINTAINER_URL = "http://medipim-maintainer.internal:3002/process"
+
+[experimental]
+  auto_rollback = true
+
+[[services]]
+  internal_port = 3003
+  protocol = "tcp"
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "60s"
+    grace_period = "30s"
+    method = "get"
+    path = "/healthz"
+    protocol = "http"
+    timeout = "10s"
+    tls_skip_verify = false
+
+[metrics]
+  port = 9091
+  path = "/metrics"

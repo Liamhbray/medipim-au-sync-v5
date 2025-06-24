@@ -1,0 +1,17 @@
+[Unit]
+Description=MediPim Full Sync
+Requires=medipim-services.service
+After=medipim-services.service
+
+[Service]
+Type=oneshot
+User=medipim
+WorkingDirectory=/opt/medipim-au-sync
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/curl -s "http://localhost:3003/sync?key=${ADMIN_KEY}"
+TimeoutStartSec=7200
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=medipim-sync

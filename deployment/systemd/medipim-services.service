@@ -1,0 +1,24 @@
+[Unit]
+Description=MediPim Sync Services
+After=network.target
+
+[Service]
+Type=forking
+User=medipim
+WorkingDirectory=/opt/medipim-au-sync
+Environment="NODE_ENV=production"
+ExecStart=/usr/bin/npm run start:all
+Restart=always
+RestartSec=10
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=2G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=medipim-services
+
+[Install]
+WantedBy=multi-user.target

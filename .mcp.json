@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+      "supabase": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@supabase/mcp-server-supabase@latest",
+          "--access-token",
+          "sbp_02aa9f53ae7790b5d8fa239f802c0992a6a72e54"
+        ]
+      },
+      "taskmaster-ai": {
+        "command": "npx",
+        "args": ["-y", "--package=task-master-ai", "task-master-ai"],
+        "env": {
+          "ANTHROPIC_API_KEY": "sk-ant-api03-0123456789abcdef0123456789abcdef",
+          "OPENAI_API_KEY": "sk-proj-0123456789abcdef0123456789abcdef"
+        },
+        "type": "stdio"
+      }
+    }
+  }

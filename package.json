@@ -1,0 +1,28 @@
+{
+  "name": "medipim-au-sync-v5",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start:fetcher": "node services/fetcher/index.js",
+    "dev:fetcher": "node services/fetcher/index.js",
+    "start:maintainer": "node services/maintainer/index.js",
+    "dev:maintainer": "node services/maintainer/index.js",
+    "start:orchestrator": "node services/orchestrator/index.js",
+    "dev:orchestrator": "node services/orchestrator/index.js",
+    "sync:full": "node services/maintainer/run-full-sync.js",
+    "start:all": "npm run start:fetcher & npm run start:maintainer & npm run start:orchestrator",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
+    "axios": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "tus-js-client": "^4.3.1"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "medipim-maintainer",
+  "version": "1.0.0",
+  "description": "MediPim AU data maintainer service",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "check": "node check-count.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "readline": "^1.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

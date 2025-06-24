@@ -1,0 +1,15 @@
+[Unit]
+Description=Run MediPim sync daily
+Requires=medipim-sync.service
+
+[Timer]
+# Run daily at 2 AM
+OnCalendar=daily
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+# Randomize start time by up to 30 minutes to avoid load spikes
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target

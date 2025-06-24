@@ -1,0 +1,116 @@
+name: Manual MediPim Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      chunk_size:
+        description: 'Number of records per chunk'
+        required: false
+        default: '5000'
+      dry_run:
+        description: 'Perform dry run (fetch only, no processing)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  manual-sync:
+    name: Manual Product Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Validate Inputs
+        run: |
+          if [ "${{ github.event.inputs.chunk_size }}" -lt 100 ] || [ "${{ github.event.inputs.chunk_size }}" -gt 50000 ]; then
+            echo "::error::Chunk size must be between 100 and 50000"
+            exit 1
+          fi
+      
+      - name: Trigger Fetch
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "📥 Starting fetch phase..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            https://medipim-fetcher.fly.dev/fetch \
+            -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}")
+          
+          http_code=$(echo "$response" | tail -n1)
+          
+          if [ "$http_code" -ne 200 ]; then
+            echo "::error::Fetch failed with status code $http_code"
+            exit 1
+          fi
+          
+          echo "✅ Fetch completed successfully"
+      
+      - name: Process in Chunks
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "🔄 Starting processing phase..."
+          
+          offset=0
+          chunk_size=${{ github.event.inputs.chunk_size }}
+          total_processed=0
+          
+          while true; do
+            echo "Processing chunk: offset=$offset, limit=$chunk_size"
+            
+            response=$(curl -s -w "\n%{http_code}" -X POST \
+              https://medipim-maintainer.fly.dev/process \
+              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"offset\": $offset, \"limit\": $chunk_size}")
+            
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | head -n-1)
+            
+            if [ "$http_code" -ne 200 ]; then
+              echo "::error::Processing failed at offset $offset"
+              echo "Response: $body"
+              exit 1
+            fi
+            
+            # Parse response
+            records_processed=$(echo "$body" | jq -r '.stats.totalRecords // 0')
+            has_more=$(echo "$body" | jq -r '.hasMore // false')
+            next_offset=$(echo "$body" | jq -r '.nextOffset // 0')
+            
+            total_processed=$((total_processed + records_processed))
+            echo "Processed $records_processed records (total: $total_processed)"
+            
+            if [ "$has_more" != "true" ]; then
+              echo "✅ All records processed!"
+              break
+            fi
+            
+            offset=$next_offset
+            
+            # Brief pause between chunks
+            sleep 2
+          done
+          
+          echo "📊 Final Statistics:"
+          echo "Total records processed: $total_processed"
+      
+      - name: Dry Run Report
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🔍 Dry Run Mode - Checking system status..."
+          
+          # Check orchestrator status
+          status=$(curl -s https://medipim-orchestrator.fly.dev/status \
+            -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}")
+          
+          echo "Current Status:"
+          echo "$status" | jq '.'
+          
+          # Check service health
+          echo -e "\n🏥 Service Health:"
+          for service in fetcher maintainer orchestrator; do
+            health=$(curl -s https://medipim-$service.fly.dev/healthz)
+            echo "- $service: $health"
+          done
+          
+          echo -e "\n✅ Dry run complete. System is ready for sync."

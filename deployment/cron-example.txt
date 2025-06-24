@@ -1,0 +1,17 @@
+# Example cron configurations for MediPim sync
+
+# Daily sync at 2 AM
+0 2 * * * curl -s "http://localhost:3003/sync?key=your-secure-admin-key-here" > /var/log/medipim-sync.log 2>&1
+
+# Hourly sync (if you need more frequent updates)
+0 * * * * curl -s "http://localhost:3003/sync?key=your-secure-admin-key-here" > /var/log/medipim-sync.log 2>&1
+
+# Every 6 hours
+0 */6 * * * curl -s "http://localhost:3003/sync?key=your-secure-admin-key-here" > /var/log/medipim-sync.log 2>&1
+
+# With email notification on failure
+0 2 * * * curl -s "http://localhost:3003/sync?key=your-secure-admin-key-here" || echo "MediPim sync failed" | mail -s "Sync Failure" admin@example.com
+
+# Using systemd timer (preferred for production)
+# Create /etc/systemd/system/medipim-sync.service
+# Create /etc/systemd/system/medipim-sync.timer
