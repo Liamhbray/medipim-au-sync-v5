@@ -30,3 +30,7 @@ tasks/
 
 # Upload state
 .upload-state.json
+
+# Local environment files
+.env.local
+.env.*.local
