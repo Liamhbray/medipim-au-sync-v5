@@ -122,10 +122,10 @@ async function downloadFromStorage() {
 }
 
 function extractProductData(record) {
-  // The record IS the product data directly from MediPim
-  const product = record;
+  // Handle the MediPim streaming structure: { meta: {...}, result: {...} }
+  const product = record.result || record;
   
-  // Extract meta.updatedAt for change detection from the product itself
+  // Extract meta.updatedAt from the product's own meta field
   const metaUpdatedAt = product.meta?.updatedAt || null;
   
   // Extract ID
@@ -177,7 +177,7 @@ function extractProductData(record) {
     gs1Category = product.gs1Category.code || null;
   }
   
-  // Timestamps are in the meta object from the product
+  // Timestamps are in the meta object from the product itself
   const createdAt = product.meta?.createdAt ? new Date(product.meta.createdAt * 1000) : null; // When product was added to MediPim
   // Note: updatedSince is a query parameter, not a data field - removed from extraction
   
