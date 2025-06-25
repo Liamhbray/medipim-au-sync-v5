@@ -13,6 +13,7 @@ Automated synchronization system for MediPim Australian product data to Supabase
    ```bash
    cp .env.example .env
    # Edit .env with your credentials
+   # Optional: Add SMTP settings for email notifications
    ```
 
 3. **Start services**

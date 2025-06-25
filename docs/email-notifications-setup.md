@@ -2,6 +2,25 @@
 
 This guide explains how to set up email notifications for successful MediPim sync runs.
 
+## Configuration Methods
+
+You can configure email notifications in two ways:
+
+### Option 1: Local Development (.env file)
+Add the SMTP configuration to your `.env` file. This is useful for testing locally:
+
+```env
+# Email Notification Configuration
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password-here
+NOTIFICATION_EMAIL=your-email@gmail.com
+```
+
+### Option 2: GitHub Actions (Production)
+For production use with GitHub Actions, add these as repository secrets (see below).
+
 ## Prerequisites
 
 You'll need SMTP credentials from an email service provider. Common options include:
