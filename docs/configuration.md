@@ -40,7 +40,18 @@ BATCH_SIZE=100          # Records per database batch
 CREATE TABLE public.products (
     id TEXT PRIMARY KEY,
     name TEXT,
-    price_cents INTEGER,
+    status TEXT,
+    organization TEXT,
+    brand TEXT,
+    "eanGtin13" TEXT,
+    "eanGtin14" TEXT,
+    "artgId" TEXT,
+    pbs TEXT,
+    "snomedMpp" TEXT,
+    "snomedTpp" TEXT,
+    "gs1Category" TEXT,
+    "createdAt" TIMESTAMPTZ,
+    "updatedSince" TIMESTAMPTZ,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     raw JSONB
 );
@@ -51,6 +62,14 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 -- Create policy for service role
 CREATE POLICY "Service role can manage products" ON public.products
     FOR ALL USING (auth.role() = 'service_role');
+
+-- Create indexes for performance
+CREATE INDEX idx_products_status ON public.products(status);
+CREATE INDEX idx_products_organization ON public.products(organization);
+CREATE INDEX idx_products_brand ON public.products(brand);
+CREATE INDEX idx_products_eanGtin13 ON public.products("eanGtin13");
+CREATE INDEX idx_products_artgId ON public.products("artgId");
+CREATE INDEX idx_products_updatedSince ON public.products("updatedSince");
 ```
 
 #### Storage Bucket

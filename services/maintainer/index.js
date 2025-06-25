@@ -144,20 +144,35 @@ function extractProductData(record) {
     }
   }
   
-  // Extract price - MediPim uses publicPrice
-  let priceCents = null;
-  if (product.publicPrice !== null && product.publicPrice !== undefined) {
-    priceCents = Math.round(product.publicPrice * 100);
-  } else if (product.pharmacistPrice !== null && product.pharmacistPrice !== undefined) {
-    priceCents = Math.round(product.pharmacistPrice * 100);
-  } else if (product.manufacturerPrice !== null && product.manufacturerPrice !== undefined) {
-    priceCents = Math.round(product.manufacturerPrice * 100);
-  }
+  // Extract all new fields
+  const status = product.status || null;
+  const organization = product.organization || null;
+  const brand = product.brand || null;
+  const eanGtin13 = product.eanGtin13 || null;
+  const eanGtin14 = product.eanGtin14 || null;
+  const artgId = product.artgId || null;
+  const pbs = product.pbs || null;
+  const snomedMpp = product.snomedMpp || null;
+  const snomedTpp = product.snomedTpp || null;
+  const gs1Category = product.gs1Category || null;
+  const createdAt = product.createdAt ? new Date(product.createdAt) : null;
+  const updatedSince = product.updatedSince ? new Date(product.updatedSince) : null;
   
   return {
     id,
     name: name.substring(0, 255), // Limit name length
-    price_cents: priceCents,
+    status,
+    organization,
+    brand,
+    eanGtin13,
+    eanGtin14,
+    artgId,
+    pbs,
+    snomedMpp,
+    snomedTpp,
+    gs1Category,
+    createdAt,
+    updatedSince,
     raw: product // Store just the result, not the meta wrapper
   };
 }
@@ -196,9 +211,20 @@ async function upsertBatch(products) {
       } else {
         // Check if product data has changed
         const hasNameChanged = existing.name !== product.name;
-        const hasPriceChanged = existing.price_cents !== product.price_cents;
+        const hasStatusChanged = existing.status !== product.status;
+        const hasOrganizationChanged = existing.organization !== product.organization;
+        const hasBrandChanged = existing.brand !== product.brand;
+        const hasEanGtin13Changed = existing.eanGtin13 !== product.eanGtin13;
+        const hasEanGtin14Changed = existing.eanGtin14 !== product.eanGtin14;
+        const hasArtgIdChanged = existing.artgId !== product.artgId;
+        const hasPbsChanged = existing.pbs !== product.pbs;
+        const hasSnomedMppChanged = existing.snomedMpp !== product.snomedMpp;
+        const hasSnomedTppChanged = existing.snomedTpp !== product.snomedTpp;
+        const hasGs1CategoryChanged = existing.gs1Category !== product.gs1Category;
         
-        if (hasNameChanged || hasPriceChanged) {
+        if (hasNameChanged || hasStatusChanged || hasOrganizationChanged || hasBrandChanged ||
+            hasEanGtin13Changed || hasEanGtin14Changed || hasArtgIdChanged || hasPbsChanged ||
+            hasSnomedMppChanged || hasSnomedTppChanged || hasGs1CategoryChanged) {
           toUpdate.push(product);
         }
       }
