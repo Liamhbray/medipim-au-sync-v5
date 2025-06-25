@@ -178,9 +178,9 @@ function extractProductData(record) {
     gs1Category = product.gs1Category.code || null;
   }
   
-  // createdAt and updatedAt are in the meta object from the original record
-  const createdAt = record.meta?.createdAt ? new Date(record.meta.createdAt * 1000) : null; // Convert unix timestamp
-  const updatedSince = record.meta?.updatedAt ? new Date(record.meta.updatedAt * 1000) : null; // Convert unix timestamp
+  // Timestamps are in the meta object from the original record
+  const createdAt = record.meta?.createdAt ? new Date(record.meta.createdAt * 1000) : null; // When product was added to MediPim
+  // Note: updatedSince is a query parameter, not a data field - removed from extraction
   
   return {
     id,
@@ -196,8 +196,7 @@ function extractProductData(record) {
     snomedTpp,
     gs1Category,
     createdAt,
-    updatedSince,
-    metaUpdatedAt: metaUpdatedAt ? new Date(metaUpdatedAt * 1000) : null, // Convert unix timestamp to Date
+    metaUpdatedAt: metaUpdatedAt ? new Date(metaUpdatedAt * 1000) : null, // When product was last modified in MediPim
     raw: product // Store just the result, not the meta wrapper
   };
 }
