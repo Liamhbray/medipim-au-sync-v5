@@ -194,7 +194,7 @@ async function upsertBatch(products) {
     const ids = validProducts.map(p => p.id);
     const { data: existingProducts, error: selectError } = await supabase
       .from('products')
-      .select('id, name, price_cents')
+      .select('id, metaUpdatedAt')
       .in('id', ids);
     
     if (selectError) throw selectError;
@@ -214,9 +214,11 @@ async function upsertBatch(products) {
         toInsert.push(product);
       } else {
         // Simple check: has the product been updated since we last processed it?
+        // Compare the timestamp from MediPim (in new data) with what we have stored in DB
         const existingUpdatedAt = existing.metaUpdatedAt ? new Date(existing.metaUpdatedAt).getTime() : 0;
         const newUpdatedAt = product.metaUpdatedAt ? product.metaUpdatedAt.getTime() : 0;
         
+        // If MediPim's timestamp is newer than our stored timestamp, update the record
         if (newUpdatedAt > existingUpdatedAt) {
           toUpdate.push(product);
         }
