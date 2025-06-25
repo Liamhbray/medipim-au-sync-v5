@@ -149,17 +149,38 @@ function extractProductData(record) {
   
   // Extract all new fields
   const status = product.status || null;
-  const organization = product.organization || null;
-  const brand = product.brand || null;
+  
+  // Extract organization - take the first organization name if available
+  let organization = null;
+  if (product.organizations && Array.isArray(product.organizations) && product.organizations.length > 0) {
+    organization = product.organizations[0].name || null;
+  }
+  
+  // Extract brand - take the first brand if available
+  let brand = null;
+  if (product.brands && Array.isArray(product.brands) && product.brands.length > 0) {
+    // brands array contains brand IDs, need to check if we have brand names elsewhere
+    // For now, we'll leave it as null since we only have IDs
+    brand = null;
+  }
+  
   const eanGtin13 = product.eanGtin13 || null;
   const eanGtin14 = product.eanGtin14 || null;
   const artgId = product.artgId || null;
   const pbs = product.pbs || null;
   const snomedMpp = product.snomedMpp || null;
   const snomedTpp = product.snomedTpp || null;
-  const gs1Category = product.gs1Category || null;
-  const createdAt = product.createdAt ? new Date(product.createdAt) : null;
-  const updatedSince = product.updatedSince ? new Date(product.updatedSince) : null;
+  
+  // Extract gs1Category - handle as object
+  let gs1Category = null;
+  if (product.gs1Category && typeof product.gs1Category === 'object') {
+    // Store the category code if available
+    gs1Category = product.gs1Category.code || null;
+  }
+  
+  // createdAt and updatedAt are in the meta object from the original record
+  const createdAt = record.meta?.createdAt ? new Date(record.meta.createdAt * 1000) : null; // Convert unix timestamp
+  const updatedSince = record.meta?.updatedAt ? new Date(record.meta.updatedAt * 1000) : null; // Convert unix timestamp
   
   return {
     id,
@@ -257,7 +278,6 @@ async function upsertBatch(products) {
             .from('products')
             .update({
               name: product.name,
-              price_cents: product.price_cents,
               raw: product.raw,
               updated_at: new Date().toISOString()
             })
