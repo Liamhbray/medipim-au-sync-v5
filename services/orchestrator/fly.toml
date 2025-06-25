@@ -8,9 +8,10 @@ primary_region = "syd"
 [env]
   NODE_ENV = "production"
   ORCHESTRATOR_PORT = "3003"
+  REQUEST_TIMEOUT = "1800000"
   # Internal service URLs using Fly.io's private networking
-  FETCHER_URL = "http://medipim-fetcher.internal:3001/fetch"
-  MAINTAINER_URL = "http://medipim-maintainer.internal:3002/process"
+  FETCHER_URL = "http://medipim-fetcher.internal:3001/run"
+  MAINTAINER_URL = "http://medipim-maintainer.internal:3002/run"
 
 [experimental]
   auto_rollback = true
