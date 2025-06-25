@@ -16,6 +16,7 @@ on:
           - full          # Run complete sync (fetch + maintain)
           - fetch-only    # Only download from MediPim to storage
           - maintain-only # Only process from storage to database
+          - notification-only # Test email notifications without syncing
       
       chunk_size:
         description: 'Records per chunk (for maintain phase)'
@@ -102,6 +103,20 @@ jobs:
           echo "Debug Mode: ${{ env.DEBUG_MODE }}"
           echo "Triggered by: ${{ github.event_name }}"
       
+      - name: Notification Test Mode
+        if: env.SYNC_MODE == 'notification-only'
+        run: |
+          echo "📧 Running in notification test mode"
+          echo "This mode will test email notifications without performing any sync operations."
+          
+          # Set mock values for testing
+          echo "TOTAL_RECORDS=12345" >> $GITHUB_ENV
+          echo "TOTAL_INSERTED=1234" >> $GITHUB_ENV
+          echo "TOTAL_UPDATED=5678" >> $GITHUB_ENV
+          echo "TOTAL_SKIPPED=5433" >> $GITHUB_ENV
+          
+          echo "✅ Mock sync completed successfully for notification testing"
+      
       - name: Check Orchestrator Status
         if: env.SYNC_MODE == 'full'
         run: |
@@ -117,7 +132,7 @@ jobs:
           fi
       
       - name: Fetch Phase
-        if: env.SYNC_MODE == 'full' || env.SYNC_MODE == 'fetch-only'
+        if: (env.SYNC_MODE == 'full' || env.SYNC_MODE == 'fetch-only') && env.SYNC_MODE != 'notification-only'
         run: |
           echo "📥 Starting fetch phase..."
           
@@ -169,7 +184,7 @@ jobs:
           fi
       
       - name: Maintain Phase - Full Sync
-        if: env.SYNC_MODE == 'full'
+        if: env.SYNC_MODE == 'full' && env.SYNC_MODE != 'notification-only'
         run: |
           echo "🔄 Starting maintain phase via orchestrator..."
           
@@ -224,7 +239,7 @@ jobs:
           exit 1
       
       - name: Maintain Phase - Direct
-        if: env.SYNC_MODE == 'maintain-only'
+        if: env.SYNC_MODE == 'maintain-only' && env.SYNC_MODE != 'notification-only'
         run: |
           echo "🔄 Starting direct maintain phase..."
           echo "Processing records from offset ${{ env.OFFSET }} with chunk size ${{ env.CHUNK_SIZE }}"

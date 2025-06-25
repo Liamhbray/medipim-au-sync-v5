@@ -74,7 +74,11 @@ The MediPim dataset is ~600MB and takes 10-15 minutes to download. During testin
    - Select "MediPim Product Sync"
    - Click "Run workflow"
    - Configure options:
-     - **Sync mode**: `full`, `fetch-only`, or `maintain-only`
+     - **Sync mode**: 
+       - `full`: Complete sync (fetch + maintain)
+       - `fetch-only`: Only download from MediPim
+       - `maintain-only`: Only process to database
+       - `notification-only`: Test email notifications with mock data
      - **Chunk size**: Records per chunk (100-50000, default: 20000)
      - **Offset**: Starting offset for maintain-only mode
      - **Limit**: Max records to process (leave empty for all)

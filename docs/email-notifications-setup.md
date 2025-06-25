@@ -78,6 +78,20 @@ To disable email notifications temporarily:
 1. Comment out or remove the `send-notification` job in the workflow
 2. Or delete the `NOTIFICATION_EMAIL` secret
 
+## Testing Notifications
+
+To test email notifications without running a full sync:
+1. Go to Actions tab → "MediPim Product Sync"
+2. Click "Run workflow"
+3. Select **Sync mode**: `notification-only`
+4. Run the workflow
+
+This will send a test email with mock data:
+- Total Records: 12,345
+- Inserted: 1,234
+- Updated: 5,678
+- Skipped: 5,433
+
 ## Troubleshooting
 
 If emails aren't being sent:
