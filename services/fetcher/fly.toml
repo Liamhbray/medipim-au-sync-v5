@@ -40,3 +40,8 @@ primary_region = "syd"
 [metrics]
   port = 9091
   path = "/metrics"
+
+[[vm]]
+  memory = "4gb"
+  cpu_kind = "performance"
+  cpus = 2

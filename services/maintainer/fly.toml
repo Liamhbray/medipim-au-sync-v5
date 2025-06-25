@@ -43,6 +43,6 @@ primary_region = "syd"
   path = "/metrics"
 
 [[vm]]
-  memory = "2gb"
-  cpu_kind = "shared"
-  cpus = 2
+  memory = "8gb"
+  cpu_kind = "performance"
+  cpus = 4
