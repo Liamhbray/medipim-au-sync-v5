@@ -52,8 +52,18 @@ jobs:
     name: MediPim Product Sync
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    outputs:
+      sync_status: ${{ steps.set-outputs.outputs.status }}
+      total_records: ${{ steps.set-outputs.outputs.total_records }}
+      records_inserted: ${{ steps.set-outputs.outputs.records_inserted }}
+      records_updated: ${{ steps.set-outputs.outputs.records_updated }}
+      records_skipped: ${{ steps.set-outputs.outputs.records_skipped }}
+      duration: ${{ steps.set-outputs.outputs.duration }}
+      sync_mode: ${{ steps.set-outputs.outputs.sync_mode }}
     
     steps:
+      - name: Record Start Time
+        run: echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
       - name: Validate Inputs
         run: |
           # Set default values for scheduled runs
@@ -274,12 +284,21 @@ jobs:
             next_offset=$(echo "$body" | jq -r '.nextOffset // 0')
             
             total_processed=$((total_processed + records_processed))
+            total_inserted=$((${total_inserted:-0} + records_inserted))
+            total_updated=$((${total_updated:-0} + records_updated))
+            total_skipped=$((${total_skipped:-0} + records_skipped))
             
             echo "Processed $records_processed records:"
             echo "  - Inserted: $records_inserted"
             echo "  - Updated: $records_updated"
             echo "  - Skipped: $records_skipped"
             echo "  - Total so far: $total_processed"
+            
+            # Store metrics
+            echo "TOTAL_RECORDS=$total_processed" >> $GITHUB_ENV
+            echo "TOTAL_INSERTED=$total_inserted" >> $GITHUB_ENV
+            echo "TOTAL_UPDATED=$total_updated" >> $GITHUB_ENV
+            echo "TOTAL_SKIPPED=$total_skipped" >> $GITHUB_ENV
             
             if [ "$has_more" != "true" ] || [ "$records_processed" -eq 0 ]; then
               echo "✅ All records processed!"
@@ -294,6 +313,26 @@ jobs:
           
           echo "📊 Final Statistics:"
           echo "Total records processed: $total_processed"
+          echo "Records inserted: ${total_inserted:-0}"
+          echo "Records updated: ${total_updated:-0}"
+          echo "Records skipped: ${total_skipped:-0}"
+      
+      - name: Set Output Variables
+        id: set-outputs
+        if: always()
+        run: |
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - ${START_TIME:-0}))
+          DURATION_MIN=$((DURATION / 60))
+          DURATION_SEC=$((DURATION % 60))
+          
+          echo "status=${{ job.status }}" >> $GITHUB_OUTPUT
+          echo "total_records=${TOTAL_RECORDS:-0}" >> $GITHUB_OUTPUT
+          echo "records_inserted=${TOTAL_INSERTED:-0}" >> $GITHUB_OUTPUT
+          echo "records_updated=${TOTAL_UPDATED:-0}" >> $GITHUB_OUTPUT
+          echo "records_skipped=${TOTAL_SKIPPED:-0}" >> $GITHUB_OUTPUT
+          echo "duration=${DURATION_MIN}m ${DURATION_SEC}s" >> $GITHUB_OUTPUT
+          echo "sync_mode=${{ env.SYNC_MODE }}" >> $GITHUB_OUTPUT
       
       - name: Summary Report
         if: always()
@@ -313,3 +352,80 @@ jobs:
             echo "- 409 conflicts: Another sync may be running"
             echo "- Database errors: Check Supabase connection and limits"
           fi
+  
+  send-notification:
+    name: Send Success Notification
+    needs: sync
+    if: ${{ needs.sync.result == 'success' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send Email Notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: ✅ MediPim Sync Completed Successfully
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: MediPim Sync <${{ secrets.SMTP_USERNAME }}>
+          html_body: |
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #22c55e;">✅ MediPim Sync Completed Successfully</h2>
+              
+              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">Sync Summary</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Mode:</strong></td>
+                    <td style="padding: 8px 0;">${{ needs.sync.outputs.sync_mode }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Duration:</strong></td>
+                    <td style="padding: 8px 0;">${{ needs.sync.outputs.duration }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Triggered By:</strong></td>
+                    <td style="padding: 8px 0;">${{ github.event_name }}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">📊 Processing Metrics</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Total Records:</strong></td>
+                    <td style="padding: 8px 0;">${{ needs.sync.outputs.total_records }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Inserted:</strong></td>
+                    <td style="padding: 8px 0; color: #22c55e;">${{ needs.sync.outputs.records_inserted }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Updated:</strong></td>
+                    <td style="padding: 8px 0; color: #3b82f6;">${{ needs.sync.outputs.records_updated }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Skipped:</strong></td>
+                    <td style="padding: 8px 0; color: #a1a1aa;">${{ needs.sync.outputs.records_skipped }}</td>
+                  </tr>
+                </table>
+              </div>
+              
+              <div style="margin: 20px 0;">
+                <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
+                   style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+                  View Full Logs
+                </a>
+              </div>
+              
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+              
+              <p style="font-size: 12px; color: #6b7280;">
+                Run ID: ${{ github.run_id }}<br>
+                Repository: ${{ github.repository }}<br>
+                Workflow: ${{ github.workflow }}
+              </p>
+            </div>

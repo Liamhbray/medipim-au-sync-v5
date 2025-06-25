@@ -57,11 +57,12 @@ The MediPim dataset is ~600MB and takes 10-15 minutes to download. During testin
 
 ### GitHub Actions (Recommended)
 
-1. **Add Secret to Repository**
+1. **Add Secrets to Repository**
    - Go to: Settings → Secrets and variables → Actions
-   - Click "New repository secret"
-   - Name: `MEDIPIM_ADMIN_KEY`
-   - Value: `your-secure-admin-key-here`
+   - Add required secret:
+     - Name: `MEDIPIM_ADMIN_KEY`
+     - Value: `your-secure-admin-key-here`
+   - For email notifications (optional), see [Email Notifications Setup](./email-notifications-setup.md)
 
 2. **Workflow Configuration**
    - `.github/workflows/sync.yml` - Automated and manual sync workflow
