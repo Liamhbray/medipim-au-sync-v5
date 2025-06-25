@@ -85,6 +85,12 @@ async function processChunk(offset, limit, retryCount = 0) {
       errors: stats.errors
     };
   } catch (error) {
+    // Don't retry on 409 (conflict) - maintainer is already processing
+    if (error.response && error.response.status === 409) {
+      console.log('  Maintainer is already processing another request');
+      return { success: false, error: 'Maintainer busy', skipRetry: true };
+    }
+    
     if (retryCount < MAX_RETRIES) {
       console.log(`  Retry ${retryCount + 1}/${MAX_RETRIES} after delay...`);
       await sleep(RETRY_DELAY);

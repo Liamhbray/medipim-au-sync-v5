@@ -378,6 +378,37 @@ app.get('/healthz', (_, res) => {
   res.status(200).send('OK');
 });
 
+app.get('/status', (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  
+  if (adminKey !== ADMIN_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  res.json({
+    isProcessing,
+    service: 'maintainer',
+    uptime: process.uptime()
+  });
+});
+
+app.post('/reset', (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  
+  if (adminKey !== ADMIN_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const wasProcessing = isProcessing;
+  isProcessing = false;
+  
+  res.json({
+    success: true,
+    message: 'Processing state reset',
+    wasProcessing
+  });
+});
+
 app.post('/run', async (req, res) => {
   const adminKey = req.headers['x-admin-key'];
   
