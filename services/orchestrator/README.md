@@ -109,10 +109,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 ### Processing Configuration
 
-- **Chunk Size**: 5,000 records
+- **Chunk Size**: 20,000 records (optimized for 300k+ products)
 - **Max Retries**: 3 attempts per chunk
 - **Retry Delay**: 5 seconds
-- **Chunk Timeout**: 10 minutes
+- **Request Timeout**: 30 minutes (for large file downloads)
 
 ## Deployment
 

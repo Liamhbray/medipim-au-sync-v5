@@ -167,17 +167,25 @@ The service logs detailed progress during processing:
 Downloading latest.ndjson from Supabase Storage...
 Downloaded file size: 573.24 MB
 Processing NDJSON file...
-Batch 1: 100 records (45 new, 55 updated, 0 errors)
-Batch 2: 100 records (0 new, 100 updated, 0 errors)
+Batch 1: 500 records (45 new, 55 updated, 400 unchanged, 0 errors)
+Batch 2: 500 records (0 new, 23 updated, 477 unchanged, 0 errors)
 ...
 === Processing Complete ===
-Total records processed: 120000
+Total records processed: 300000
 Records inserted: 5000
-Records updated: 115000
+Records updated: 15000
+Records skipped (unchanged): 280000
 Errors: 0
 Processing time: 45.23 seconds
-Average speed: 2654.32 records/second
+Average speed: 6635.32 records/second
 ```
+
+### Intelligent Updates
+The maintainer service only updates products that have actually changed:
+- Compares `name` and `price_cents` fields
+- Skips unchanged products to reduce database load
+- Updates `updated_at` timestamp only for modified records
+- Provides detailed statistics on inserts, updates, and skips
 
 ## Performance Tuning
 

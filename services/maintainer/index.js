@@ -171,21 +171,42 @@ async function upsertBatch(products) {
   }
   
   try {
-    // First, check which products already exist
+    // First, check which products already exist with their current data
     const ids = validProducts.map(p => p.id);
     const { data: existingProducts, error: selectError } = await supabase
       .from('products')
-      .select('id')
+      .select('id, name, price_cents')
       .in('id', ids);
     
     if (selectError) throw selectError;
     
-    const existingIds = new Set((existingProducts || []).map(p => p.id));
-    const toInsert = validProducts.filter(p => !existingIds.has(p.id));
-    const toUpdate = validProducts.filter(p => existingIds.has(p.id));
+    // Create a map for quick lookup of existing products
+    const existingMap = new Map((existingProducts || []).map(p => [p.id, p]));
+    
+    const toInsert = [];
+    const toUpdate = [];
+    
+    // Determine which products need insertion or update
+    for (const product of validProducts) {
+      const existing = existingMap.get(product.id);
+      
+      if (!existing) {
+        // Product doesn't exist, needs insertion
+        toInsert.push(product);
+      } else {
+        // Check if product data has changed
+        const hasNameChanged = existing.name !== product.name;
+        const hasPriceChanged = existing.price_cents !== product.price_cents;
+        
+        if (hasNameChanged || hasPriceChanged) {
+          toUpdate.push(product);
+        }
+      }
+    }
     
     let inserted = 0;
     let updated = 0;
+    let skipped = validProducts.length - toInsert.length - toUpdate.length;
     
     // Insert new products
     if (toInsert.length > 0) {
@@ -200,31 +221,44 @@ async function upsertBatch(products) {
       inserted = toInsert.length;
     }
     
-    // Update existing products
+    // Update only products that have changed
     if (toUpdate.length > 0) {
-      // Update one by one for now (bulk update is more complex with Supabase)
-      for (const product of toUpdate) {
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({
-            name: product.name,
-            price_cents: product.price_cents,
-            raw: product.raw,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', product.id);
-        
-        if (updateError) {
-          console.error(`Update error for product ${product.id}:`, updateError);
-        } else {
-          updated++;
+      // Batch update in chunks for better performance
+      const updateChunks = [];
+      for (let i = 0; i < toUpdate.length; i += 100) {
+        updateChunks.push(toUpdate.slice(i, i + 100));
+      }
+      
+      for (const chunk of updateChunks) {
+        // Update each product in the chunk
+        for (const product of chunk) {
+          const { error: updateError } = await supabase
+            .from('products')
+            .update({
+              name: product.name,
+              price_cents: product.price_cents,
+              raw: product.raw,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', product.id);
+          
+          if (updateError) {
+            console.error(`Update error for product ${product.id}:`, updateError);
+          } else {
+            updated++;
+          }
         }
       }
+    }
+    
+    if (skipped > 0) {
+      console.log(`Skipped ${skipped} unchanged products`);
     }
     
     return {
       inserted,
       updated,
+      skipped,
       errors: products.length - validProducts.length
     };
   } catch (error) {
@@ -238,6 +272,7 @@ async function processNDJSON(offset = 0, limit = null) {
   let totalRecords = 0;
   let totalInserted = 0;
   let totalUpdated = 0;
+  let totalSkipped = 0;
   let totalErrors = 0;
   let batchCount = 0;
   let lineNumber = 0;
@@ -303,9 +338,11 @@ async function processNDJSON(offset = 0, limit = null) {
         
         totalInserted += result.inserted;
         totalUpdated += result.updated;
+        totalSkipped += (result.skipped || 0);
         totalErrors += result.errors;
         
-        console.log(`Batch ${batchCount}: ${batch.length} records (${result.inserted} new, ${result.updated} updated, ${result.errors} errors)`);
+        const skippedMsg = result.skipped > 0 ? `, ${result.skipped} unchanged` : '';
+        console.log(`Batch ${batchCount}: ${batch.length} records (${result.inserted} new, ${result.updated} updated${skippedMsg}, ${result.errors} errors)`);
       } catch (error) {
         console.error(`Batch ${batchCount} error:`, error.message);
         totalErrors += batch.length;
@@ -318,6 +355,7 @@ async function processNDJSON(offset = 0, limit = null) {
     console.log(`Total records processed: ${totalRecords}`);
     console.log(`Records inserted: ${totalInserted}`);
     console.log(`Records updated: ${totalUpdated}`);
+    console.log(`Records skipped (unchanged): ${totalSkipped}`);
     console.log(`Errors: ${totalErrors}`);
     console.log(`Processing time: ${duration} seconds`);
     console.log(`Average speed: ${(totalRecords / duration).toFixed(2)} records/second`);
@@ -326,6 +364,7 @@ async function processNDJSON(offset = 0, limit = null) {
       totalRecords,
       inserted: totalInserted,
       updated: totalUpdated,
+      skipped: totalSkipped,
       errors: totalErrors,
       duration: parseFloat(duration)
     };

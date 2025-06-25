@@ -58,7 +58,8 @@ The MediPim AU Sync system synchronizes product data from MediPim's Australian c
 ### Maintainer Service  
 - Processes NDJSON to database
 - Supports chunked processing
-- Performs batch upserts
+- Performs intelligent upserts (only updates changed products)
+- Tracks inserted, updated, and skipped records
 - [Full Documentation](../services/maintainer/README.md)
 
 ### Orchestrator Service
@@ -85,8 +86,9 @@ The MediPim AU Sync system synchronizes product data from MediPim's Australian c
 
 ## Performance Characteristics
 
-- **Total Sync Time**: ~30 minutes for full catalog
-- **Data Volume**: ~108,000 products, ~573MB NDJSON
-- **Processing Rate**: ~3,600 products/minute
-- **Memory Usage**: <512MB per service
+- **Total Sync Time**: ~15-25 minutes for full catalog (with optimized resources)
+- **Data Volume**: ~300,000+ products, ~600MB NDJSON
+- **Processing Rate**: ~12,000-20,000 products/minute
+- **Memory Usage**: <512MB per service (8GB for maintainer with performance CPUs)
 - **Network**: Requires stable broadband connection
+- **Database Efficiency**: Only updates products with actual changes, skips unchanged records
