@@ -63,15 +63,22 @@ The MediPim dataset is ~600MB and takes 10-15 minutes to download. During testin
    - Name: `MEDIPIM_ADMIN_KEY`
    - Value: `your-secure-admin-key-here`
 
-2. **Workflows Already Created**
-   - `.github/workflows/sync.yml` - Daily automated sync at 2 AM Sydney time
-   - `.github/workflows/manual-sync.yml` - Manual trigger with options
+2. **Workflow Configuration**
+   - `.github/workflows/sync.yml` - Automated and manual sync workflow
+     - Runs daily at 2 AM Sydney time automatically
+     - Can be triggered manually with multiple options
 
-3. **Test Manual Sync**
+3. **Manual Sync Options**
    - Go to Actions tab
-   - Select "Manual MediPim Sync"
+   - Select "MediPim Product Sync"
    - Click "Run workflow"
-   - Optional: Set chunk size or enable dry run
+   - Configure options:
+     - **Sync mode**: `full`, `fetch-only`, or `maintain-only`
+     - **Chunk size**: Records per chunk (100-50000, default: 20000)
+     - **Offset**: Starting offset for maintain-only mode
+     - **Limit**: Max records to process (leave empty for all)
+     - **Force refresh**: Re-download even if recent data exists
+     - **Debug mode**: Enable verbose logging
 
 ### Alternative: Cron Service
 

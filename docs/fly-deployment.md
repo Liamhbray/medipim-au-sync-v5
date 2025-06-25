@@ -136,9 +136,11 @@ Each service has a `fly.toml` file with:
    - Go to Settings → Secrets → Actions
    - Add `MEDIPIM_ADMIN_KEY` with your admin key value
 
-2. Workflows are pre-configured:
-   - `.github/workflows/sync.yml`: Daily automated sync
-   - `.github/workflows/manual-sync.yml`: Manual trigger with options
+2. Workflow is pre-configured:
+   - `.github/workflows/sync.yml`: Automated and manual sync
+     - Runs daily at 2 AM Sydney time
+     - Manual trigger with sync modes: full, fetch-only, maintain-only
+     - Configurable chunk size, offset, limit, and debug options
 
 ### Option 2: External Cron Services
 

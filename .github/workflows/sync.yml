@@ -5,25 +5,163 @@ on:
     # Run daily at 2 AM Sydney time (4 PM UTC during DST, 3 PM UTC standard time)
     - cron: '0 16 * * *'
   
-  # Allow manual triggering
   workflow_dispatch:
     inputs:
-      force:
-        description: 'Force sync even if one is running'
+      sync_mode:
+        description: 'Sync mode'
+        required: true
+        default: 'full'
+        type: choice
+        options:
+          - full          # Run complete sync (fetch + maintain)
+          - fetch-only    # Only download from MediPim to storage
+          - maintain-only # Only process from storage to database
+      
+      chunk_size:
+        description: 'Records per chunk (for maintain phase)'
         required: false
-        default: 'false'
+        default: '20000'
+        type: string
+      
+      offset:
+        description: 'Starting offset for maintain-only mode'
+        required: false
+        default: '0'
+        type: string
+      
+      limit:
+        description: 'Max records to process (leave empty for all)'
+        required: false
+        default: ''
+        type: string
+      
+      force_refresh:
+        description: 'Force re-download even if recent data exists'
+        required: false
+        default: false
+        type: boolean
+      
+      debug_mode:
+        description: 'Enable debug logging'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   sync:
-    name: Sync MediPim Products
+    name: MediPim Product Sync
     runs-on: ubuntu-latest
     timeout-minutes: 360
     
     steps:
-      - name: Trigger Sync
-        id: sync
+      - name: Validate Inputs
         run: |
-          echo "Starting MediPim sync at $(date)"
+          # Set default values for scheduled runs
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "SYNC_MODE=full" >> $GITHUB_ENV
+            echo "CHUNK_SIZE=20000" >> $GITHUB_ENV
+            echo "OFFSET=0" >> $GITHUB_ENV
+            echo "LIMIT=" >> $GITHUB_ENV
+            echo "FORCE_REFRESH=false" >> $GITHUB_ENV
+            echo "DEBUG_MODE=false" >> $GITHUB_ENV
+          else
+            echo "SYNC_MODE=${{ github.event.inputs.sync_mode }}" >> $GITHUB_ENV
+            echo "CHUNK_SIZE=${{ github.event.inputs.chunk_size }}" >> $GITHUB_ENV
+            echo "OFFSET=${{ github.event.inputs.offset }}" >> $GITHUB_ENV
+            echo "LIMIT=${{ github.event.inputs.limit }}" >> $GITHUB_ENV
+            echo "FORCE_REFRESH=${{ github.event.inputs.force_refresh }}" >> $GITHUB_ENV
+            echo "DEBUG_MODE=${{ github.event.inputs.debug_mode }}" >> $GITHUB_ENV
+          fi
+          
+          # Validate chunk size
+          if [ "${{ env.CHUNK_SIZE }}" -lt 100 ] || [ "${{ env.CHUNK_SIZE }}" -gt 50000 ]; then
+            echo "::error::Chunk size must be between 100 and 50000"
+            exit 1
+          fi
+      
+      - name: Sync Status
+        run: |
+          echo "🔄 Starting MediPim sync"
+          echo "Mode: ${{ env.SYNC_MODE }}"
+          echo "Chunk Size: ${{ env.CHUNK_SIZE }}"
+          if [ "${{ env.SYNC_MODE }}" = "maintain-only" ]; then
+            echo "Offset: ${{ env.OFFSET }}"
+            echo "Limit: ${{ env.LIMIT || 'all' }}"
+          fi
+          echo "Force Refresh: ${{ env.FORCE_REFRESH }}"
+          echo "Debug Mode: ${{ env.DEBUG_MODE }}"
+          echo "Triggered by: ${{ github.event_name }}"
+      
+      - name: Check Orchestrator Status
+        if: env.SYNC_MODE == 'full'
+        run: |
+          echo "📊 Checking current sync status..."
+          
+          status=$(curl -s https://medipim-orchestrator.fly.dev/status \
+            -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" | jq -r '.currentPhase')
+          
+          if [ "$status" = "running" ] || [ "$status" = "processing" ]; then
+            echo "::warning::A sync is already in progress. Current phase: $status"
+            echo "To force a new sync, please wait for the current one to complete."
+            exit 1
+          fi
+      
+      - name: Fetch Phase
+        if: env.SYNC_MODE == 'full' || env.SYNC_MODE == 'fetch-only'
+        run: |
+          echo "📥 Starting fetch phase..."
+          
+          if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+            echo "Debug: Calling fetcher service..."
+          fi
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            https://medipim-fetcher.fly.dev/run \
+            -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+          
+          if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+            echo "Debug: Response code: $http_code"
+            echo "Debug: Response body: $body"
+          fi
+          
+          if [ "$http_code" -ne 200 ]; then
+            if echo "$body" | grep -q "Upload already in progress"; then
+              echo "::warning::A fetch is already in progress. Waiting for completion..."
+              
+              # Wait up to 30 minutes for fetch to complete
+              for i in {1..60}; do
+                sleep 30
+                status=$(curl -s https://medipim-fetcher.fly.dev/run \
+                  -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" \
+                  -X POST -w "\n%{http_code}" | tail -n1)
+                
+                if [ "$status" -eq 200 ]; then
+                  echo "✅ Previous fetch completed"
+                  break
+                elif [ "$status" -ne 409 ]; then
+                  echo "::error::Fetch service returned unexpected status: $status"
+                  exit 1
+                fi
+                
+                echo "Still waiting... ($i/60)"
+              done
+            else
+              echo "::error::Fetch failed with status code $http_code"
+              echo "Response: $body"
+              exit 1
+            fi
+          else
+            echo "✅ Fetch completed successfully"
+            echo "$body" | jq '.'
+          fi
+      
+      - name: Maintain Phase - Full Sync
+        if: env.SYNC_MODE == 'full'
+        run: |
+          echo "🔄 Starting maintain phase via orchestrator..."
           
           response=$(curl -s -w "\n%{http_code}" -X POST \
             https://medipim-orchestrator.fly.dev/sync \
@@ -33,47 +171,39 @@ jobs:
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | head -n-1)
           
-          echo "HTTP Status: $http_code"
-          echo "Response: $body"
-          
           if [ "$http_code" -ne 200 ]; then
-            echo "::error::Sync failed with status code $http_code"
+            echo "::error::Orchestrator sync failed with status code $http_code"
+            echo "Response: $body"
             exit 1
           fi
           
-          echo "sync_response=$body" >> $GITHUB_OUTPUT
-      
-      - name: Monitor Sync Progress
-        run: |
           echo "Monitoring sync progress..."
           
-          # Wait for sync to complete (check every 30 seconds)
-          max_attempts=120  # 60 minutes max
+          # Monitor progress
+          max_attempts=120  # 60 minutes
           attempt=0
           
           while [ $attempt -lt $max_attempts ]; do
             sleep 30
             
             status=$(curl -s https://medipim-orchestrator.fly.dev/status \
-              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" | jq -r '.currentPhase')
+              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}")
             
-            echo "$(date): Status = $status"
+            phase=$(echo "$status" | jq -r '.currentPhase')
+            echo "$(date): Phase = $phase"
             
-            if [ "$status" = "completed" ]; then
+            if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+              echo "Debug: Full status:"
+              echo "$status" | jq '.'
+            fi
+            
+            if [ "$phase" = "completed" ]; then
               echo "✅ Sync completed successfully!"
-              
-              # Get final statistics
-              curl -s https://medipim-orchestrator.fly.dev/status \
-                -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" | jq '.progress'
-              
+              echo "$status" | jq '.progress'
               exit 0
-            elif [ "$status" = "failed" ]; then
+            elif [ "$phase" = "failed" ]; then
               echo "::error::Sync failed!"
-              
-              # Get error details
-              curl -s https://medipim-orchestrator.fly.dev/status \
-                -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" | jq '.errors'
-              
+              echo "$status" | jq '.progress.errors'
               exit 1
             fi
             
@@ -83,8 +213,103 @@ jobs:
           echo "::error::Sync timed out after 60 minutes"
           exit 1
       
-      - name: Log Failure
-        if: failure()
+      - name: Maintain Phase - Direct
+        if: env.SYNC_MODE == 'maintain-only'
         run: |
-          echo "::error::MediPim sync failed at $(date)"
-          echo "Please check the logs above for error details"
+          echo "🔄 Starting direct maintain phase..."
+          echo "Processing records from offset ${{ env.OFFSET }} with chunk size ${{ env.CHUNK_SIZE }}"
+          
+          offset=${{ env.OFFSET }}
+          chunk_size=${{ env.CHUNK_SIZE }}
+          limit="${{ env.LIMIT }}"
+          total_processed=0
+          
+          # Check maintainer status first
+          status=$(curl -s https://medipim-maintainer.fly.dev/status \
+            -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" | jq -r '.isProcessing')
+          
+          if [ "$status" = "true" ]; then
+            echo "::warning::Maintainer is already processing. Attempting reset..."
+            curl -X POST https://medipim-maintainer.fly.dev/reset \
+              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}"
+            sleep 5
+          fi
+          
+          while true; do
+            echo "Processing chunk: offset=$offset, limit=$chunk_size"
+            
+            # Build request body
+            if [ -n "$limit" ]; then
+              remaining=$((limit - total_processed))
+              if [ $remaining -le 0 ]; then
+                echo "✅ Reached limit of $limit records"
+                break
+              fi
+              if [ $remaining -lt $chunk_size ]; then
+                chunk_size=$remaining
+              fi
+            fi
+            
+            response=$(curl -s -w "\n%{http_code}" -X POST \
+              https://medipim-maintainer.fly.dev/run \
+              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"offset\": $offset, \"limit\": $chunk_size}")
+            
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | head -n-1)
+            
+            if [ "$http_code" -ne 200 ]; then
+              echo "::error::Processing failed at offset $offset"
+              echo "Response: $body"
+              exit 1
+            fi
+            
+            # Parse response
+            records_processed=$(echo "$body" | jq -r '.stats.totalRecords // 0')
+            records_inserted=$(echo "$body" | jq -r '.stats.inserted // 0')
+            records_updated=$(echo "$body" | jq -r '.stats.updated // 0')
+            records_skipped=$(echo "$body" | jq -r '.stats.skipped // 0')
+            has_more=$(echo "$body" | jq -r '.hasMore // false')
+            next_offset=$(echo "$body" | jq -r '.nextOffset // 0')
+            
+            total_processed=$((total_processed + records_processed))
+            
+            echo "Processed $records_processed records:"
+            echo "  - Inserted: $records_inserted"
+            echo "  - Updated: $records_updated"
+            echo "  - Skipped: $records_skipped"
+            echo "  - Total so far: $total_processed"
+            
+            if [ "$has_more" != "true" ] || [ "$records_processed" -eq 0 ]; then
+              echo "✅ All records processed!"
+              break
+            fi
+            
+            offset=$next_offset
+            
+            # Brief pause between chunks
+            sleep 2
+          done
+          
+          echo "📊 Final Statistics:"
+          echo "Total records processed: $total_processed"
+      
+      - name: Summary Report
+        if: always()
+        run: |
+          echo "📋 Sync Summary"
+          echo "=============="
+          echo "Workflow: ${{ github.run_id }}"
+          echo "Status: ${{ job.status }}"
+          echo "Mode: ${{ env.SYNC_MODE }}"
+          echo "Duration: ${{ job.duration || 'N/A' }}"
+          
+          if [ "${{ job.status }}" = "failure" ]; then
+            echo ""
+            echo "⚠️ The sync encountered errors. Please check the logs above for details."
+            echo "Common issues:"
+            echo "- Service timeout: Try increasing chunk size or reducing load"
+            echo "- 409 conflicts: Another sync may be running"
+            echo "- Database errors: Check Supabase connection and limits"
+          fi
