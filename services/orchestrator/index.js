@@ -17,7 +17,7 @@ const MAINTAINER_URL = isProduction
 const ADMIN_KEY = process.env.ADMIN_KEY || 'your-admin-key-here';
 
 // Configuration
-const CHUNK_SIZE = 5000;
+const CHUNK_SIZE = 20000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 5000;
 

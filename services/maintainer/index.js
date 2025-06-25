@@ -16,7 +16,7 @@ const supabase = createClient(
 );
 
 const ADMIN_KEY = process.env.ADMIN_KEY || 'your-admin-key-here';
-const BATCH_SIZE = parseInt(process.env.BATCH_SIZE) || 100;
+const BATCH_SIZE = parseInt(process.env.BATCH_SIZE) || 500;
 
 let isProcessing = false;
 

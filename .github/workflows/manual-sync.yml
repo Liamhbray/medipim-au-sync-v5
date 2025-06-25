@@ -6,7 +6,7 @@ on:
       chunk_size:
         description: 'Number of records per chunk'
         required: false
-        default: '5000'
+        default: '20000'
       dry_run:
         description: 'Perform dry run (fetch only, no processing)'
         required: false
@@ -17,7 +17,7 @@ jobs:
   manual-sync:
     name: Manual Product Sync
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
     
     steps:
       - name: Validate Inputs
