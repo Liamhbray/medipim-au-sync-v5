@@ -5,6 +5,9 @@ function extractProductData(record) {
   // Handle the MediPim structure where data is in record.result
   const product = record.result || record;
   
+  // Extract meta.updatedAt for change detection
+  const metaUpdatedAt = record.meta?.updatedAt || null;
+  
   // Extract ID
   const id = product.id || null;
   
@@ -53,6 +56,7 @@ function extractProductData(record) {
     gs1Category,
     createdAt,
     updatedSince,
+    metaUpdatedAt: metaUpdatedAt ? new Date(metaUpdatedAt * 1000) : null, // Convert unix timestamp to Date
     raw: product // Store just the result, not the meta wrapper
   };
 }
@@ -61,7 +65,8 @@ function extractProductData(record) {
 const testRecord = {
   "meta": {
     "total": 108022,
-    "index": 0
+    "index": 0,
+    "updatedAt": 1735120800  // Unix timestamp: 2024-12-25 10:00:00 UTC
   },
   "result": {
     "id": "M34C3D3A5E",

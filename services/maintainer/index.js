@@ -125,6 +125,9 @@ function extractProductData(record) {
   // Handle the MediPim structure where data is in record.result
   const product = record.result || record;
   
+  // Extract meta.updatedAt for change detection
+  const metaUpdatedAt = record.meta?.updatedAt || null;
+  
   // Extract ID
   const id = product.id || null;
   
@@ -173,6 +176,7 @@ function extractProductData(record) {
     gs1Category,
     createdAt,
     updatedSince,
+    metaUpdatedAt: metaUpdatedAt ? new Date(metaUpdatedAt * 1000) : null, // Convert unix timestamp to Date
     raw: product // Store just the result, not the meta wrapper
   };
 }
@@ -209,25 +213,11 @@ async function upsertBatch(products) {
         // Product doesn't exist, needs insertion
         toInsert.push(product);
       } else {
-        // Check if product data has changed
-        const hasNameChanged = existing.name !== product.name;
-        const hasStatusChanged = existing.status !== product.status;
-        const hasOrganizationChanged = existing.organization !== product.organization;
-        const hasBrandChanged = existing.brand !== product.brand;
-        const hasEanGtin13Changed = existing.eanGtin13 !== product.eanGtin13;
-        const hasEanGtin14Changed = existing.eanGtin14 !== product.eanGtin14;
-        const hasArtgIdChanged = existing.artgId !== product.artgId;
-        const hasPbsChanged = existing.pbs !== product.pbs;
-        const hasSnomedMppChanged = existing.snomedMpp !== product.snomedMpp;
-        const hasSnomedTppChanged = existing.snomedTpp !== product.snomedTpp;
-        const hasGs1CategoryChanged = existing.gs1Category !== product.gs1Category;
+        // Simple check: has the product been updated since we last processed it?
+        const existingUpdatedAt = existing.metaUpdatedAt ? new Date(existing.metaUpdatedAt).getTime() : 0;
+        const newUpdatedAt = product.metaUpdatedAt ? product.metaUpdatedAt.getTime() : 0;
         
-        // Deep check if raw JSON has changed
-        const hasRawChanged = JSON.stringify(existing.raw) !== JSON.stringify(product.raw);
-        
-        if (hasNameChanged || hasStatusChanged || hasOrganizationChanged || hasBrandChanged ||
-            hasEanGtin13Changed || hasEanGtin14Changed || hasArtgIdChanged || hasPbsChanged ||
-            hasSnomedMppChanged || hasSnomedTppChanged || hasGs1CategoryChanged || hasRawChanged) {
+        if (newUpdatedAt > existingUpdatedAt) {
           toUpdate.push(product);
         }
       }

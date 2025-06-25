@@ -12,9 +12,10 @@ The Maintainer Service downloads the `latest.ndjson` file uploaded by the Fetche
 - **Batch Operations**: Groups database operations for optimal performance
 - **Idempotent Upserts**: Safe to run multiple times - only updates changed records
 - **Smart Update Logic**: Only updates when data changes:
-  - Compares all extracted fields (name, status, organization, etc.)
-  - Deep comparison of raw JSONB data to catch any changes
-  - Skips unchanged products for optimal performance
+  - Uses MediPim's `meta.updatedAt` timestamp for efficient change detection
+  - Simply compares timestamps - if MediPim's timestamp is newer, update the record
+  - No need for field-by-field comparison or deep JSON checks
+  - Extremely efficient for large datasets
 - **Chunked Processing**: Support for processing data in chunks with offset/limit
 - **Error Handling**: Gracefully handles malformed JSON and continues processing
 - **Progress Tracking**: Logs detailed statistics during and after processing

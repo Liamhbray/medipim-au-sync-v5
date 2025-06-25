@@ -52,6 +52,7 @@ CREATE TABLE public.products (
     "gs1Category" TEXT,
     "createdAt" TIMESTAMPTZ,
     "updatedSince" TIMESTAMPTZ,
+    "metaUpdatedAt" TIMESTAMPTZ,  -- MediPim's last modification timestamp
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     raw JSONB
 );
@@ -70,6 +71,7 @@ CREATE INDEX idx_products_brand ON public.products(brand);
 CREATE INDEX idx_products_eanGtin13 ON public.products("eanGtin13");
 CREATE INDEX idx_products_artgId ON public.products("artgId");
 CREATE INDEX idx_products_updatedSince ON public.products("updatedSince");
+CREATE INDEX idx_products_metaUpdatedAt ON public.products("metaUpdatedAt");
 ```
 
 #### Storage Bucket

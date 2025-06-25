@@ -14,7 +14,8 @@ ADD COLUMN IF NOT EXISTS "snomedMpp" TEXT,
 ADD COLUMN IF NOT EXISTS "snomedTpp" TEXT,
 ADD COLUMN IF NOT EXISTS "gs1Category" TEXT,
 ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMPTZ,
-ADD COLUMN IF NOT EXISTS "updatedSince" TIMESTAMPTZ;
+ADD COLUMN IF NOT EXISTS "updatedSince" TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS "metaUpdatedAt" TIMESTAMPTZ;
 
 -- Drop the price_cents column
 ALTER TABLE public.products 
@@ -27,6 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_products_brand ON public.products(brand);
 CREATE INDEX IF NOT EXISTS idx_products_eanGtin13 ON public.products("eanGtin13");
 CREATE INDEX IF NOT EXISTS idx_products_artgId ON public.products("artgId");
 CREATE INDEX IF NOT EXISTS idx_products_updatedSince ON public.products("updatedSince");
+CREATE INDEX IF NOT EXISTS idx_products_metaUpdatedAt ON public.products("metaUpdatedAt");
 
 -- Update RLS policy to remain the same
 -- Policy already exists: "Service role can manage products"
