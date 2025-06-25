@@ -58,7 +58,7 @@ The MediPim AU Sync system synchronizes product data from MediPim's Australian c
 ### Maintainer Service  
 - Processes NDJSON to database
 - Supports chunked processing
-- Performs intelligent upserts (only updates changed products)
+- Performs intelligent upserts using meta.updatedAt timestamps
 - Tracks inserted, updated, and skipped records
 - [Full Documentation](../services/maintainer/README.md)
 
@@ -91,4 +91,4 @@ The MediPim AU Sync system synchronizes product data from MediPim's Australian c
 - **Processing Rate**: ~12,000-20,000 products/minute
 - **Memory Usage**: <512MB per service (8GB for maintainer with performance CPUs)
 - **Network**: Requires stable broadband connection
-- **Database Efficiency**: Only updates products with actual changes, skips unchanged records
+- **Database Efficiency**: Uses meta.updatedAt timestamps to skip unchanged products

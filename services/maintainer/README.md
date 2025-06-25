@@ -187,9 +187,10 @@ Average speed: 6635.32 records/second
 
 ### Intelligent Updates
 The maintainer service only updates products that have actually changed:
-- Compares `name` and `price_cents` fields
+- Uses MediPim's `meta.updatedAt` timestamp for change detection
+- Compares stored timestamp with incoming timestamp
+- Updates only when MediPim's timestamp is newer
 - Skips unchanged products to reduce database load
-- Updates `updated_at` timestamp only for modified records
 - Provides detailed statistics on inserts, updates, and skips
 
 ## Performance Tuning
