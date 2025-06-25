@@ -222,9 +222,12 @@ async function upsertBatch(products) {
         const hasSnomedTppChanged = existing.snomedTpp !== product.snomedTpp;
         const hasGs1CategoryChanged = existing.gs1Category !== product.gs1Category;
         
+        // Deep check if raw JSON has changed
+        const hasRawChanged = JSON.stringify(existing.raw) !== JSON.stringify(product.raw);
+        
         if (hasNameChanged || hasStatusChanged || hasOrganizationChanged || hasBrandChanged ||
             hasEanGtin13Changed || hasEanGtin14Changed || hasArtgIdChanged || hasPbsChanged ||
-            hasSnomedMppChanged || hasSnomedTppChanged || hasGs1CategoryChanged) {
+            hasSnomedMppChanged || hasSnomedTppChanged || hasGs1CategoryChanged || hasRawChanged) {
           toUpdate.push(product);
         }
       }

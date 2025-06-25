@@ -11,6 +11,10 @@ The Maintainer Service downloads the `latest.ndjson` file uploaded by the Fetche
 - **Streaming Processing**: Processes large NDJSON files line-by-line without loading entire file into memory
 - **Batch Operations**: Groups database operations for optimal performance
 - **Idempotent Upserts**: Safe to run multiple times - only updates changed records
+- **Smart Update Logic**: Only updates when data changes:
+  - Compares all extracted fields (name, status, organization, etc.)
+  - Deep comparison of raw JSONB data to catch any changes
+  - Skips unchanged products for optimal performance
 - **Chunked Processing**: Support for processing data in chunks with offset/limit
 - **Error Handling**: Gracefully handles malformed JSON and continues processing
 - **Progress Tracking**: Logs detailed statistics during and after processing
