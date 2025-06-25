@@ -122,11 +122,11 @@ async function downloadFromStorage() {
 }
 
 function extractProductData(record) {
-  // Handle the MediPim structure where data is in record.result
-  const product = record.result || record;
+  // The record IS the product data directly from MediPim
+  const product = record;
   
-  // Extract meta.updatedAt for change detection
-  const metaUpdatedAt = record.meta?.updatedAt || null;
+  // Extract meta.updatedAt for change detection from the product itself
+  const metaUpdatedAt = product.meta?.updatedAt || null;
   
   // Extract ID
   const id = product.id || null;
@@ -156,12 +156,11 @@ function extractProductData(record) {
     organization = product.organizations[0].name || null;
   }
   
-  // Extract brand - take the first brand if available
+  // Extract brand - take the first brand name if available
   let brand = null;
   if (product.brands && Array.isArray(product.brands) && product.brands.length > 0) {
-    // brands array contains brand IDs, need to check if we have brand names elsewhere
-    // For now, we'll leave it as null since we only have IDs
-    brand = null;
+    // brands array contains brand objects with id and name
+    brand = product.brands[0].name || null;
   }
   
   const eanGtin13 = product.eanGtin13 || null;
@@ -178,8 +177,8 @@ function extractProductData(record) {
     gs1Category = product.gs1Category.code || null;
   }
   
-  // Timestamps are in the meta object from the original record
-  const createdAt = record.meta?.createdAt ? new Date(record.meta.createdAt * 1000) : null; // When product was added to MediPim
+  // Timestamps are in the meta object from the product
+  const createdAt = product.meta?.createdAt ? new Date(product.meta.createdAt * 1000) : null; // When product was added to MediPim
   // Note: updatedSince is a query parameter, not a data field - removed from extraction
   
   return {
