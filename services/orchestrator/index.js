@@ -44,7 +44,7 @@ async function fetchLatestData() {
   try {
     const response = await axios.post(FETCHER_URL, {}, {
       headers: { 'X-ADMIN-KEY': ADMIN_KEY },
-      timeout: parseInt(process.env.REQUEST_TIMEOUT) || 900000 // Default 15 minutes
+      timeout: parseInt(process.env.REQUEST_TIMEOUT) || 1800000 // Default 30 minutes (increased from 15)
     });
     
     console.log('✓ Data fetched successfully:', response.data);
