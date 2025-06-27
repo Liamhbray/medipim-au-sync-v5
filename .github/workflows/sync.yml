@@ -245,57 +245,99 @@ jobs:
       - name: Maintain Phase - Full Sync
         if: env.SYNC_MODE == 'full' && env.SYNC_MODE != 'notification-only'
         run: |
-          echo "🔄 Starting maintain phase via orchestrator..."
+          echo "🔄 Starting maintain phase directly..."
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            https://medipim-orchestrator.fly.dev/sync \
-            -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" \
-            -H "Content-Type: application/json")
+          # Process data in chunks directly without orchestrator
+          offset=0
+          chunk_size=20000
+          total_processed=0
+          total_inserted=0
+          total_updated=0
+          total_skipped=0
+          has_more=true
+          chunk_number=0
           
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
+          # First check if maintainer is busy
+          status=$(curl -s https://medipim-maintainer.fly.dev/status \
+            -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" | jq -r '.isProcessing')
           
-          if [ "$http_code" -ne 200 ]; then
-            echo "::error::Orchestrator sync failed with status code $http_code"
-            echo "Response: $body"
-            exit 1
+          if [ "$status" = "true" ]; then
+            echo "::warning::Maintainer is already processing. Attempting reset..."
+            curl -X POST https://medipim-maintainer.fly.dev/reset \
+              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}"
+            sleep 5
           fi
           
-          echo "Monitoring sync progress..."
+          echo "Processing data in chunks of $chunk_size records..."
           
-          # Monitor progress
-          max_attempts=120  # 60 minutes
-          attempt=0
-          
-          while [ $attempt -lt $max_attempts ]; do
-            sleep 30
+          while [ "$has_more" = "true" ]; do
+            chunk_number=$((chunk_number + 1))
+            echo ""
+            echo "📦 Processing chunk $chunk_number (offset: $offset)..."
             
-            status=$(curl -s https://medipim-orchestrator.fly.dev/status \
-              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}")
+            # Call maintainer directly for each chunk
+            response=$(curl -s -w "\n%{http_code}" -X POST \
+              https://medipim-maintainer.fly.dev/run \
+              -H "X-ADMIN-KEY: ${{ secrets.MEDIPIM_ADMIN_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"offset\": $offset, \"limit\": $chunk_size}" \
+              --max-time 900)  # 15 minute timeout per chunk
             
-            phase=$(echo "$status" | jq -r '.currentPhase')
-            echo "$(date): Phase = $phase"
+            http_code=$(echo "$response" | tail -n1)
+            body=$(echo "$response" | head -n-1)
             
-            if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
-              echo "Debug: Full status:"
-              echo "$status" | jq '.'
-            fi
-            
-            if [ "$phase" = "completed" ]; then
-              echo "✅ Sync completed successfully!"
-              echo "$status" | jq '.progress'
-              exit 0
-            elif [ "$phase" = "failed" ]; then
-              echo "::error::Sync failed!"
-              echo "$status" | jq '.progress.errors'
+            if [ "$http_code" -ne 200 ]; then
+              echo "::error::Processing failed at chunk $chunk_number (offset $offset)"
+              echo "Response: $body"
               exit 1
             fi
             
-            attempt=$((attempt + 1))
+            # Parse response
+            records_processed=$(echo "$body" | jq -r '.stats.totalRecords // 0')
+            records_inserted=$(echo "$body" | jq -r '.stats.inserted // 0')
+            records_updated=$(echo "$body" | jq -r '.stats.updated // 0')
+            records_skipped=$(echo "$body" | jq -r '.stats.skipped // 0')
+            has_more=$(echo "$body" | jq -r '.hasMore // false')
+            next_offset=$(echo "$body" | jq -r '.nextOffset // 0')
+            
+            # Update totals
+            total_processed=$((total_processed + records_processed))
+            total_inserted=$((total_inserted + records_inserted))
+            total_updated=$((total_updated + records_updated))
+            total_skipped=$((total_skipped + records_skipped))
+            
+            echo "✓ Chunk $chunk_number complete: $records_processed records"
+            echo "  - Inserted: $records_inserted"
+            echo "  - Updated: $records_updated"
+            echo "  - Skipped: $records_skipped"
+            echo "  - Total processed so far: $total_processed"
+            
+            # Check if we're done
+            if [ "$has_more" != "true" ] || [ "$records_processed" -eq 0 ]; then
+              echo ""
+              echo "✅ All chunks processed successfully!"
+              break
+            fi
+            
+            # Update offset for next chunk
+            offset=$next_offset
+            
+            # Brief pause between chunks
+            sleep 2
           done
           
-          echo "::error::Sync timed out after 60 minutes"
-          exit 1
+          # Store final metrics
+          echo "TOTAL_RECORDS=$total_processed" >> $GITHUB_ENV
+          echo "TOTAL_INSERTED=$total_inserted" >> $GITHUB_ENV
+          echo "TOTAL_UPDATED=$total_updated" >> $GITHUB_ENV
+          echo "TOTAL_SKIPPED=$total_skipped" >> $GITHUB_ENV
+          
+          echo ""
+          echo "📊 Final Statistics:"
+          echo "Total records processed: $total_processed"
+          echo "Records inserted: $total_inserted"
+          echo "Records updated: $total_updated"
+          echo "Records skipped: $total_skipped"
       
       - name: Maintain Phase - Direct
         if: env.SYNC_MODE == 'maintain-only' && env.SYNC_MODE != 'notification-only'
