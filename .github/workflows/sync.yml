@@ -61,6 +61,8 @@ jobs:
       records_skipped: ${{ steps.set-outputs.outputs.records_skipped }}
       duration: ${{ steps.set-outputs.outputs.duration }}
       sync_mode: ${{ steps.set-outputs.outputs.sync_mode }}
+      download_size_mb: ${{ steps.set-outputs.outputs.download_size_mb }}
+      download_completed_at: ${{ steps.set-outputs.outputs.download_completed_at }}
     
     steps:
       - name: Record Start Time
@@ -181,6 +183,12 @@ jobs:
           else
             echo "✅ Fetch completed successfully"
             echo "$body" | jq '.'
+            
+            # Extract download metrics from response
+            export DOWNLOAD_SIZE_MB=$(echo "$body" | jq -r '.fileSizeMB // "N/A"')
+            export DOWNLOAD_COMPLETED_AT=$(echo "$body" | jq -r '.completedAt // "N/A"')
+            echo "DOWNLOAD_SIZE_MB=$DOWNLOAD_SIZE_MB" >> $GITHUB_ENV
+            echo "DOWNLOAD_COMPLETED_AT=$DOWNLOAD_COMPLETED_AT" >> $GITHUB_ENV
           fi
       
       - name: Maintain Phase - Full Sync
@@ -348,6 +356,8 @@ jobs:
           echo "records_skipped=${TOTAL_SKIPPED:-0}" >> $GITHUB_OUTPUT
           echo "duration=${DURATION_MIN}m ${DURATION_SEC}s" >> $GITHUB_OUTPUT
           echo "sync_mode=${{ env.SYNC_MODE }}" >> $GITHUB_OUTPUT
+          echo "download_size_mb=${DOWNLOAD_SIZE_MB:-N/A}" >> $GITHUB_OUTPUT
+          echo "download_completed_at=${DOWNLOAD_COMPLETED_AT:-N/A}" >> $GITHUB_OUTPUT
       
       - name: Summary Report
         if: always()
@@ -389,6 +399,14 @@ jobs:
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #22c55e;">✅ MediPim Sync Completed Successfully</h2>
               
+              <!-- Summary Status Banner -->
+              <div style="background-color: #dcfce7; border: 1px solid #86efac; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 16px; color: #166534;">
+                  <strong>Status:</strong> 
+                  ${{ needs.sync.outputs.records_inserted == '0' && needs.sync.outputs.records_updated == '0' && needs.sync.outputs.total_records != '0' && 'Database is already up-to-date with MediPim. No changes required.' || needs.sync.outputs.total_records == '0' && 'No products were processed. Please check the logs.' || 'Successfully synchronized with MediPim data.' }}
+                </p>
+              </div>
+              
               <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="margin-top: 0;">Sync Summary</h3>
                 <table style="width: 100%; border-collapse: collapse;">
@@ -407,26 +425,47 @@ jobs:
                 </table>
               </div>
               
+              <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h3 style="margin-top: 0;">📥 Download Information</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>File Size:</strong></td>
+                    <td style="padding: 8px 0;">${{ needs.sync.outputs.download_size_mb }} MB</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Download Completed:</strong></td>
+                    <td style="padding: 8px 0;">${{ needs.sync.outputs.download_completed_at }}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0;"><strong>Status:</strong></td>
+                    <td style="padding: 8px 0; color: #22c55e;">✓ Successful</td>
+                  </tr>
+                </table>
+              </div>
+              
               <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="margin-top: 0;">📊 Processing Metrics</h3>
                 <table style="width: 100%; border-collapse: collapse;">
                   <tr>
-                    <td style="padding: 8px 0;"><strong>Total Records:</strong></td>
+                    <td style="padding: 8px 0;"><strong>Products Checked:</strong></td>
                     <td style="padding: 8px 0;">${{ needs.sync.outputs.total_records }}</td>
                   </tr>
                   <tr>
-                    <td style="padding: 8px 0;"><strong>Inserted:</strong></td>
+                    <td style="padding: 8px 0;"><strong>New Products Added:</strong></td>
                     <td style="padding: 8px 0; color: #22c55e;">${{ needs.sync.outputs.records_inserted }}</td>
                   </tr>
                   <tr>
-                    <td style="padding: 8px 0;"><strong>Updated:</strong></td>
+                    <td style="padding: 8px 0;"><strong>Existing Products Updated:</strong></td>
                     <td style="padding: 8px 0; color: #3b82f6;">${{ needs.sync.outputs.records_updated }}</td>
                   </tr>
                   <tr>
-                    <td style="padding: 8px 0;"><strong>Skipped:</strong></td>
-                    <td style="padding: 8px 0; color: #a1a1aa;">${{ needs.sync.outputs.records_skipped }}</td>
+                    <td style="padding: 8px 0;"><strong>Unchanged (Already Up-to-date):</strong></td>
+                    <td style="padding: 8px 0; color: #6b7280;">${{ needs.sync.outputs.records_skipped }}</td>
                   </tr>
                 </table>
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6b7280;">
+                  <em>Note: A high number of unchanged products indicates your database is already synchronized with MediPim.</em>
+                </p>
               </div>
               
               <div style="margin: 20px 0;">

@@ -138,7 +138,13 @@ async function streamMediPimToSupabase() {
         onSuccess: function() {
           console.log('Upload completed successfully');
           clearUploadState();
-          resolve({ success: true, bytesUploaded: totalBytes });
+          const completedAt = new Date().toISOString();
+          resolve({ 
+            success: true, 
+            bytesUploaded: totalBytes,
+            fileSizeMB: (totalBytes / (1024 * 1024)).toFixed(2),
+            completedAt: completedAt
+          });
         },
         onShouldRetry: function(error, retryAttempt, options) {
           const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
@@ -188,7 +194,9 @@ app.post('/run', async (req, res) => {
     res.json({ 
       success: true, 
       message: 'Stream completed successfully',
-      bytesUploaded: result.bytesUploaded 
+      bytesUploaded: result.bytesUploaded,
+      fileSizeMB: result.fileSizeMB,
+      completedAt: result.completedAt
     });
   } catch (error) {
     console.error('Stream failed:', error);
