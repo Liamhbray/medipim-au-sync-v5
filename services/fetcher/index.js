@@ -80,7 +80,7 @@ async function streamMediPimToSupabase() {
         }
       },
       responseType: 'stream',
-      timeout: 300000
+      timeout: parseInt(process.env.REQUEST_TIMEOUT) || 1800000 // Default 30 minutes (same as orchestrator)
     });
 
     // Buffer the entire response to get the size
